@@ -106,6 +106,23 @@ header p{color:#555;font-size:.98rem;margin-top:4px;}
 .btn-todo-del{background:none;border:none;color:#e53935;font-size:1rem;cursor:pointer;padding:0 2px;flex-shrink:0;}
 .btn-todo-del:hover{color:#b71c1c;}
 .todo-empty{color:#aaa;font-style:italic;font-size:.85rem;text-align:center;padding:10px 0;}
+.chat-panel{background:white;border-radius:14px;padding:18px 20px;margin-bottom:14px;}
+.chat-panel h2{color:#2e7d32;margin-bottom:12px;font-size:1.05rem;}
+.chat-messages{display:flex;flex-direction:column;gap:10px;max-height:340px;overflow-y:auto;margin-bottom:12px;padding-right:4px;}
+.chat-msg{background:#f1f8e9;border-radius:10px;padding:10px 13px;border-left:3px solid #81c784;}
+.chat-msg-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+.chat-msg-name{font-weight:bold;color:#2e7d32;font-size:.88rem;}
+.chat-msg-time{font-size:.73rem;color:#aaa;}
+.chat-msg-text{font-size:.9rem;color:#333;line-height:1.5;word-break:break-word;}
+.btn-chat-del{background:none;border:none;color:#e53935;font-size:.85rem;cursor:pointer;padding:0 2px;margin-left:6px;}
+.btn-chat-del:hover{color:#b71c1c;}
+.chat-empty{color:#aaa;font-style:italic;font-size:.85rem;text-align:center;padding:10px 0;}
+.chat-input-row{display:flex;flex-direction:column;gap:7px;}
+.chat-input-row input,.chat-input-row textarea{border:1px solid #c8e6c9;border-radius:7px;padding:7px 9px;font-size:.9rem;outline:none;font-family:inherit;}
+.chat-input-row input:focus,.chat-input-row textarea:focus{border-color:#43a047;}
+.chat-input-row textarea{resize:vertical;min-height:60px;}
+.btn-chat-send{background:#2e7d32;color:white;border:none;border-radius:7px;padding:8px 18px;font-size:.93rem;cursor:pointer;font-weight:bold;align-self:flex-end;}
+.btn-chat-send:hover{background:#1b5e20;}
 footer{text-align:center;color:#999;font-size:.78rem;padding:12px 0 8px;}
 @media(max-width:800px){body{padding:10px;}.page-layout{flex-direction:column;}.side-col{width:100%;position:static;}header h1{font-size:1.9rem;}.cal-grid{grid-template-columns:26px repeat(7,1fr);}.cal-week-num{font-size:.62rem;min-height:54px;}.cal-cell{min-height:54px;padding:3px 2px;}.day-num{font-size:.8rem;}.month-title{font-size:1.1rem;min-width:150px;}.side-panel{padding:14px;}}
 @media(max-width:480px){.cal-grid{grid-template-columns:22px repeat(7,1fr);}.cal-week-num{font-size:.58rem;min-height:48px;}.cal-cell{min-height:48px;padding:2px;}.day-num{font-size:.75rem;}.reservation-label{display:none;}.cal-header-cell{font-size:.72rem;padding:7px 1px;}.week-owner-info{gap:10px;}}
@@ -117,11 +134,11 @@ footer{text-align:center;color:#999;font-size:.78rem;padding:12px 0 8px;}
 <h1>Nuokku</h1>
 <p>Suvun mokin varauskalenteri</p>
 <div class="week-owner-info">
-<span class="odd-badge">Parittomat viikot - Markus</span>
-<span class="even-badge">Parilliset viikot - Mikko</span>
+<span class="odd-badge" id="oddLabel">Parittomat viikot - Mikko</span>
+<span class="even-badge" id="evenLabel">Parilliset viikot - Markus</span>
 </div>
-<div class="current-week-info" id="currentWeekInfo"></div>
-<div class="sync-status" id="syncStatus">Yhdistetaan tietokantaan...</div>
+<div class="current-week-info" id="curWeekInfo"></div>
+<div class="sync-status" id="syncStatus"></div>
 </header>
 <div class="page-layout">
 <div class="main-col">
@@ -129,227 +146,117 @@ footer{text-align:center;color:#999;font-size:.78rem;padding:12px 0 8px;}
 <div class="legend-item"><div class="legend-box lb-free"></div> Vapaa</div>
 <div class="legend-item"><div class="legend-box lb-selecting"></div> Valitaan</div>
 <div class="legend-item"><div class="legend-box lb-selected"></div> Valittu jakso</div>
-<div class="legend-item"><div class="legend-box lb-reserved-odd"></div> Varattu (Markus)</div>
-<div class="legend-item"><div class="legend-box lb-reserved-even"></div> Varattu (Mikko)</div>
+<div class="legend-item"><div class="legend-box lb-reserved-odd"></div> <span id="legendOdd">Varattu (Mikko)</span></div>
+<div class="legend-item"><div class="legend-box lb-reserved-even"></div> <span id="legendEven">Varattu (Markus)</span></div>
 <div class="legend-item"><div class="legend-box lb-today"></div> Tanaan</div>
 </div>
 <div class="calendar-nav">
-<button id="prevMonth">&#8592;</button>
+<button onclick="prevMonth()">&#8592;</button>
 <div class="month-title" id="monthTitle"></div>
-<button id="nextMonth">&#8594;</button>
+<button onclick="nextMonth()">&#8594;</button>
 </div>
-<div class="calendar"><div class="cal-grid" id="calGrid"></div></div>
-<div class="hint-bar idle" id="hintBar">Ladataan...</div>
+<div class="calendar" id="calendar"></div>
+<div class="hint-bar idle" id="hintBar">Klikkaa kalenterista aloituspaiva</div>
 <div class="form-panel">
-<h2>Lisaa varaus</h2>
+<h2>&#128197; Lisaa varaus</h2>
 <div class="form-row">
-<div class="form-group"><label>Varaajan nimi *</label><input type="text" id="resName" placeholder="Esim. Markus"></div>
-<div class="form-group"><label>Saapumispaiva</label><div class="date-display empty-date" id="dispStart">Klikkaa kalenterista</div></div>
-<div class="form-group"><label>Lahtopaiva</label><div class="date-display empty-date" id="dispEnd">Klikkaa kalenterista</div></div>
+<div class="form-group">
+<label>Varaajan nimi *</label>
+<input type="text" id="resName" placeholder="Esim. Markus">
+</div>
+<div class="form-group">
+<label>Saapuminen</label>
+<div class="date-display empty-date" id="dispStart">Klikkaa kalenterista</div>
+</div>
+<div class="form-group">
+<label>Lahto</label>
+<div class="date-display empty-date" id="dispEnd">Klikkaa kalenterista</div>
+</div>
 </div>
 <div class="btn-row">
-<button class="btn-add" id="addRes" disabled>Lisaa varaus</button>
-<button class="btn-clear-sel" id="clearSel">Tyhjenna</button>
+<button class="btn-add" onclick="addReservation()">Lisaa varaus</button>
+<button class="btn-clear-sel" onclick="clearSelection()">Tyhjenna valinta</button>
 </div>
-<div class="msg" id="formMsg"></div>
+<div class="msg" id="msg"></div>
 </div>
 <div class="reservations-list">
-<h2>Kaikki varaukset</h2>
-<div id="resList"></div>
+<h2>&#128203; Varaukset</h2>
+<div id="resList"><div class="no-res">Ei varauksia.</div></div>
 </div>
-<footer>Nuokku - Suvun mokki</footer>
+<div class="chat-panel">
+<h2>&#128172; Keskustelu</h2>
+<div class="chat-messages" id="chatMessages"><div class="chat-empty">Ei viesteja viela.</div></div>
+<div class="chat-input-row">
+<input type="text" id="chatName" placeholder="Nimesi" maxlength="40">
+<textarea id="chatText" placeholder="Kirjoita viesti..." maxlength="500"></textarea>
+<button class="btn-chat-send" onclick="sendChatMsg()">Laheta &#128232;</button>
+</div>
+</div>
 </div>
 <div class="side-col">
 <div class="side-panel instructions-panel">
-<h2>Mokin ohjeet</h2>
-<textarea id="instrText" placeholder="Kirjoita tahan mokin ohjeet..."></textarea>
-<button class="btn-save-instr" id="saveInstr">Tallenna ohjeet</button>
+<h2>&#128221; Ohjeita ja tietoja</h2>
+<textarea id="instrText" placeholder="Kirjoita ohjeita tai tietoja mokista..."></textarea>
+<button class="btn-save-instr" onclick="saveInstructions()">Tallenna ohjeet</button>
 <span class="instr-saved" id="instrSaved">Tallennettu!</span>
 </div>
-<div class="side-panel todo-panel">
-<h2>Tehtavalista</h2>
+<div class="side-panel">
+<h2>&#9989; Tehtavalista</h2>
 <div class="todo-add-row">
-<input type="text" id="todoInput" placeholder="Uusi tehtava...">
-<button class="btn-todo-add" id="todoAdd">+</button>
+<input type="text" id="todoInput" placeholder="Uusi tehtava..." maxlength="120" onkeydown="if(event.key==='Enter')addTodo()">
+<button class="btn-todo-add" onclick="addTodo()">+</button>
 </div>
 <ul class="todo-list" id="todoList"></ul>
 </div>
 </div>
 </div>
-
+<footer>Nuokku &copy; 2026</footer>
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getDatabase, ref, set, push, remove, onValue } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
-
-const firebaseConfig = {
-  apiKey: "AIzaSyC07SAgtC_A8fpsQ0Ys5u32yjAwePRLzxI",
-  authDomain: "nuokku-d58f8.firebaseapp.com",
-  databaseURL: "https://nuokku-d58f8-default-rtdb.firebaseio.com",
-  projectId: "nuokku-d58f8",
-  storageBucket: "nuokku-d58f8.firebasestorage.app",
-  messagingSenderId: "63959404033",
-  appId: "1:63959404033:web:cd17d1d8665efee7a07a00"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-
-// State
-var reservations = {};
-var todos = {};
-var instructions = '';
-var cy, cm2;
-var tl = new Date(); tl.setHours(0,0,0,0);
-var ss = null, se = null, hd = null;
-var mn = ['Tammikuu','Helmikuu','Maaliskuu','Huhtikuu','Toukokuu','Kesakuu','Heinakuu','Elokuu','Syyskuu','Lokakuu','Marraskuu','Joulukuu'];
-
-function isoWeek(d){var u=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));var day=u.getUTCDay()||7;u.setUTCDate(u.getUTCDate()+4-day);var ys=new Date(Date.UTC(u.getUTCFullYear(),0,1));return Math.ceil((((u-ys)/86400000)+1)/7);}
-function isOdd(n){return n%2!==0;}
-function dS(d){var y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');return y+'-'+m+'-'+day;}
-function pD(s){var p=s.split('-');return new Date(+p[0],+p[1]-1,+p[2]);}
-function fD(s){return pD(s).toLocaleDateString('fi-FI',{day:'numeric',month:'numeric',year:'numeric'});}
-function iR(ds,s,e){return ds>=s&&ds<=e;}
-function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-
-function setSync(ok, msg){var el=document.getElementById('syncStatus');el.textContent=msg;el.className='sync-status '+(ok?'sync-ok':'sync-err');}
-
-// Listen to Firebase data in realtime
-onValue(ref(db,'reservations'), snap => {
-  reservations = snap.val() || {};
-  renderCalendar();
-  renderList();
-  setSync(true,'Tietokanta yhdistetty - muutokset synkronoituvat kaikille');
-}, err => setSync(false,'Yhteysvirhe: '+err.message));
-
-onValue(ref(db,'todos'), snap => {
-  todos = snap.val() || {};
-  renderTodos();
-});
-
-onValue(ref(db,'instructions'), snap => {
-  var val = snap.val();
-  if(val !== null) {
-    instructions = val;
-    document.getElementById('instrText').value = val;
-  }
-});
-
-function uCW(){var w=isoWeek(tl);var o=isOdd(w)?'Markus':'Mikko';var el=document.getElementById('currentWeekInfo');el.textContent='Viikko '+w+' - '+o+'n vuoro';el.style.color=isOdd(w)?'#e65100':'#1565c0';}
-function uH(){var b=document.getElementById('hintBar');if(!ss){b.className='hint-bar idle';b.textContent='Klikkaa kalenterista saapumispaivaa';}else if(!se){b.className='hint-bar';b.textContent='Saapumispaiva: '+fD(dS(ss))+' - Klikkaa lahtopaivaa';}else{b.className='hint-bar idle';b.textContent='Valittu: '+fD(dS(ss))+' - '+fD(dS(se))+' - Anna nimi ja paina Lisaa';}}
-function uDD(){var ds=document.getElementById('dispStart'),de=document.getElementById('dispEnd');if(ss){ds.textContent=fD(dS(ss));ds.className='date-display';}else{ds.textContent='Klikkaa kalenterista';ds.className='date-display empty-date';}if(se){de.textContent=fD(dS(se));de.className='date-display';}else{de.textContent='Klikkaa kalenterista';de.className='date-display empty-date';}document.getElementById('addRes').disabled=!(ss&&se);}
-
-function getResList(){return Object.entries(reservations).map(([k,v])=>({...v,_key:k}));}
-
-function renderCalendar(){
-  var grid=document.getElementById('calGrid');
-  document.getElementById('monthTitle').textContent=mn[cm2]+' '+cy;
-  grid.innerHTML='';
-  var cor=document.createElement('div');cor.className='cal-corner';grid.appendChild(cor);
-  ['Ma','Ti','Ke','To','Pe','La','Su'].forEach(function(d){var c=document.createElement('div');c.className='cal-header-cell';c.textContent=d;grid.appendChild(c);});
-  var fd=new Date(cy,cm2,1);
-  var sd=fd.getDay();sd=(sd===0)?6:sd-1;
-  var dim=new Date(cy,cm2+1,0).getDate();
-  var ts=dS(tl);
-  var rSt=null,rEn=null;
-  if(ss&&!se&&hd){var s1=dS(ss),h1=dS(hd);rSt=(h1>=s1)?s1:h1;rEn=(h1>=s1)?h1:s1;}
-  else if(ss&&se){rSt=dS(ss);rEn=dS(se);}
-  if(sd>0){var wn=isoWeek(new Date(cy,cm2,1));var wc=document.createElement('div');wc.className='cal-week-num '+(isOdd(wn)?'odd-week':'even-week');wc.textContent='v'+wn;grid.appendChild(wc);for(var i=0;i<sd;i++){var ec=document.createElement('div');ec.className='cal-cell empty';grid.appendChild(ec);}}
-  var resList=getResList();
-  for(var d=1;d<=dim;d++){
-    var date=new Date(cy,cm2,d);var ds=dS(date);
-    var dow=date.getDay();var dm=(dow===0)?6:dow-1;
-    if(dm===0){var wn2=isoWeek(date);var wc2=document.createElement('div');wc2.className='cal-week-num '+(isOdd(wn2)?'odd-week':'even-week');wc2.textContent='v'+wn2;grid.appendChild(wc2);}
-    var cell=document.createElement('div');cell.className='cal-cell';cell.dataset.date=ds;
-    if(date<tl)cell.classList.add('past');
-    if(ds===ts)cell.classList.add('today');
-    var dr=resList.filter(function(r){return iR(ds,r.start,r.end);});
-    if(dr.length>0){cell.classList.add('reserved');var rw=isoWeek(pD(dr[0].start));cell.classList.add(isOdd(rw)?'reserved-odd':'reserved-even');dr.forEach(function(r){var rw2=isoWeek(pD(r.start));var lbl=document.createElement('span');lbl.className='reservation-label '+(isOdd(rw2)?'rl-odd':'rl-even');lbl.textContent=r.name;cell.appendChild(lbl);});}
-    else if(date>=tl){
-      if(ss&&!se&&!hd&&ds===dS(ss))cell.classList.add('selecting-start');
-      if(rSt&&rEn){if(ds===rSt&&ds===rEn)cell.classList.add('range-start');else if(ds===rSt)cell.classList.add('range-start');else if(ds===rEn)cell.classList.add('range-end');else if(ds>rSt&&ds<rEn)cell.classList.add('range-mid');}
-    }
-    var ne=document.createElement('div');ne.className='day-num';ne.textContent=d;cell.prepend(ne);
-    grid.appendChild(cell);
-  }
-  grid.onmouseover=function(e){var c=e.target.closest('.cal-cell');if(!c||!c.dataset.date||c.classList.contains('empty')||c.classList.contains('past')||c.classList.contains('reserved')){if(hd){hd=null;renderCalendar();}return;}if(ss&&!se){var h=pD(c.dataset.date);if(!hd||dS(h)!==dS(hd)){hd=h;renderCalendar();}}};
-  grid.onmouseleave=function(){if(ss&&!se&&hd){hd=null;renderCalendar();}};
-  grid.onclick=function(e){var c=e.target.closest('.cal-cell');if(!c||!c.dataset.date||c.classList.contains('empty')||c.classList.contains('past')||c.classList.contains('reserved'))return;var cl=pD(c.dataset.date);if(!ss||(ss&&se)){ss=cl;se=null;hd=null;}else{if(cl<ss){se=ss;ss=cl;}else{se=cl;}hd=null;}document.getElementById('formMsg').textContent='';document.getElementById('formMsg').className='msg';renderCalendar();uH();uDD();};
-}
-
-function renderList(){
-  var list=document.getElementById('resList');
-  var sorted=getResList().sort(function(a,b){return a.start.localeCompare(b.start);});
-  if(sorted.length===0){list.innerHTML='<p class="no-res">Ei varauksia.</p>';return;}
-  list.innerHTML='';
-  sorted.forEach(function(r){
-    var w=isoWeek(pD(r.start));var cls=isOdd(w)?'odd-res':'even-res';
-    var item=document.createElement('div');item.className='res-item '+cls;
-    item.innerHTML='<div><div class="res-name">'+esc(r.name)+'</div><div class="res-dates">'+fD(r.start)+' - '+fD(r.end)+'</div><div class="res-week">Viikko '+w+' - '+(isOdd(w)?'Markus':'Mikko')+'</div></div><button class="btn-del" data-key="'+r._key+'">Poista</button>';
-    list.appendChild(item);
-  });
-}
-
-function renderTodos(){
-  var ul=document.getElementById('todoList');
-  var items=Object.entries(todos).map(([k,v])=>({...v,_key:k})).sort((a,b)=>(a.ts||0)-(b.ts||0));
-  if(items.length===0){ul.innerHTML='<li class="todo-empty">Ei tehtavia</li>';return;}
-  ul.innerHTML='';
-  items.forEach(function(t){
-    var li=document.createElement('li');li.className='todo-item'+(t.done?' done':'');
-    li.innerHTML='<input type="checkbox" class="todo-cb" data-key="'+t._key+'"'+(t.done?' checked':'')+'><span class="todo-text">'+esc(t.text)+'</span><button class="btn-todo-del" data-key="'+t._key+'">x</button>';
-    ul.appendChild(li);
-  });
-}
-
-document.getElementById('addRes').addEventListener('click',function(){
-  var name=document.getElementById('resName').value.trim();
-  var msg=document.getElementById('formMsg');msg.className='msg';
-  if(!name){msg.textContent='Anna varaajan nimi.';return;}
-  if(!ss||!se){msg.textContent='Valitse paivat kalenterista.';return;}
-  var start=dS(ss),end=dS(se);
-  var overlap=getResList().find(function(r){return !(end<r.start||start>r.end);});
-  if(overlap){msg.textContent='Paallekkainen varaus: '+overlap.name;return;}
-  push(ref(db,'reservations'),{name:name,start:start,end:end});
-  msg.className='msg ok';msg.textContent='Varaus lisatty!';
-  document.getElementById('resName').value='';ss=null;se=null;hd=null;
-  renderCalendar();uH();uDD();
-});
-
-document.getElementById('clearSel').addEventListener('click',function(){ss=null;se=null;hd=null;document.getElementById('formMsg').textContent='';renderCalendar();uH();uDD();});
-
-document.getElementById('resList').addEventListener('click',function(e){
-  if(e.target.classList.contains('btn-del')){
-    var key=e.target.dataset.key;
-    var name=reservations[key]?reservations[key].name:'varaus';
-    if(confirm('Poistetaanko varaus: '+name+'?')){remove(ref(db,'reservations/'+key));}
-  }
-});
-
-document.getElementById('todoAdd').addEventListener('click',function(){
-  var inp=document.getElementById('todoInput');var v=inp.value.trim();if(!v)return;
-  push(ref(db,'todos'),{text:v,done:false,ts:Date.now()});inp.value='';inp.focus();
-});
-document.getElementById('todoInput').addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('todoAdd').click();});
-document.getElementById('todoList').addEventListener('change',function(e){
-  if(e.target.classList.contains('todo-cb')){var key=e.target.dataset.key;set(ref(db,'todos/'+key+'/done'),e.target.checked);}
-});
-document.getElementById('todoList').addEventListener('click',function(e){
-  var btn=e.target.closest('.btn-todo-del');
-  if(btn){remove(ref(db,'todos/'+btn.dataset.key));}
-});
-
-document.getElementById('prevMonth').addEventListener('click',function(){cm2--;if(cm2<0){cm2=11;cy--;}renderCalendar();});
-document.getElementById('nextMonth').addEventListener('click',function(){cm2++;if(cm2>11){cm2=0;cy++;}renderCalendar();});
-
-var instrText=document.getElementById('instrText');
-document.getElementById('saveInstr').addEventListener('click',function(){
-  set(ref(db,'instructions'),instrText.value);
-  var sv=document.getElementById('instrSaved');sv.classList.add('show');
-  setTimeout(function(){sv.classList.remove('show');},2000);
-});
-
-cy=tl.getFullYear();cm2=tl.getMonth();
-uCW();renderCalendar();uH();uDD();
+import { getDatabase, ref, onValue, push, set, remove } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+const firebaseConfig={apiKey:"AIzaSyC07SAgtC_A8fpsQ0Ys5u32yjAwePRLzxI",authDomain:"nuokku-d58f8.firebaseapp.com",databaseURL:"https://nuokku-d58f8-default-rtdb.firebaseio.com",projectId:"nuokku-d58f8",storageBucket:"nuokku-d58f8.appspot.com",messagingSenderId:"63959404033",appId:"1:63959404033:web:cd17d1d8665efee7a07a00"};
+const app=initializeApp(firebaseConfig);
+const db=getDatabase(app);
+const MONTHS=['Tammikuu','Helmikuu','Maaliskuu','Huhtikuu','Toukokuu','Kesakuu','Heinakuu','Elokuu','Syyskuu','Lokakuu','Marraskuu','Joulukuu'];
+const DAYS=['Ma','Ti','Ke','To','Pe','La','Su'];
+let curYear=new Date().getFullYear(),curMonth=new Date().getMonth();
+let reservations=[],todos=[],chatMessages=[],instructions="";
+let selStart=null,selEnd=null,selActive=false,hoverDate=null;
+function getYearConfig(y){return y>=2027?{odd:"Markus",even:"Mikko"}:{odd:"Mikko",even:"Markus"};}
+function isOdd(w){return w%2===1;}
+function getWeekOwner(wn,y){const c=getYearConfig(y);return isOdd(wn)?c.odd:c.even;}
+function updateOwnerLabels(){const cfg=getYearConfig(curYear);document.getElementById("oddLabel").textContent="Parittomat viikot - "+cfg.odd;document.getElementById("evenLabel").textContent="Parilliset viikot - "+cfg.even;document.getElementById("legendOdd").textContent="Varattu ("+cfg.odd+")";document.getElementById("legendEven").textContent="Varattu ("+cfg.even+")";const now=new Date();const wn=getWeekNum(now);const owner=getWeekOwner(wn,now.getFullYear());const nowCfg=getYearConfig(now.getFullYear());document.getElementById("curWeekInfo").textContent="Nykyinen viikko: "+wn+" | Tama viikko: "+owner+" | Parittomat: "+nowCfg.odd+" | Parilliset: "+nowCfg.even;}
+function dStr(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function parseD(s){const[y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d);}
+function fD(s){const d=parseD(s);return d.getDate()+"."+(d.getMonth()+1)+"."+d.getFullYear();}
+function getWeekNum(d){const tmp=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const dn=tmp.getUTCDay()||7;tmp.setUTCDate(tmp.getUTCDate()+4-dn);const ys=new Date(Date.UTC(tmp.getUTCFullYear(),0,1));return Math.ceil((((tmp-ys)/86400000)+1)/7);}
+function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function setStatus(msg,ok){const el=document.getElementById("syncStatus");el.textContent=msg;el.className="sync-status "+(ok?"sync-ok":"sync-err");}
+onValue(ref(db,"reservations"),snap=>{reservations=[];snap.forEach(c=>reservations.push({id:c.key,...c.val()}));renderCalendar();renderResList();setStatus("Tietokanta yhdistetty",true);},err=>setStatus("Yhteysvirhe: "+err.message,false));
+onValue(ref(db,"todos"),snap=>{todos=[];snap.forEach(c=>todos.push({id:c.key,...c.val()}));renderTodos();});
+onValue(ref(db,"instructions"),snap=>{instructions=snap.val()||"";document.getElementById("instrText").value=instructions;});
+onValue(ref(db,"chat"),snap=>{chatMessages=[];snap.forEach(c=>chatMessages.push({id:c.key,...c.val()}));renderChat();});
+function getRes(ds){return reservations.find(r=>ds>=r.start&&ds<=r.end);}
+function inRange(ds){if(!selStart)return false;const end=selEnd||hoverDate;if(!end)return ds===selStart;const a=selStart<end?selStart:end;const b=selStart<end?end:selStart;return ds>=a&&ds<=b;}
+function renderCalendar(){updateOwnerLabels();document.getElementById("monthTitle").textContent=MONTHS[curMonth]+" "+curYear;const cal=document.getElementById("calendar");const today=dStr(new Date());const firstDay=new Date(curYear,curMonth,1);const lastDay=new Date(curYear,curMonth+1,0);const startDow=(firstDay.getDay()+6)%7;let html='<div class="cal-grid">';html+='<div class="cal-corner"></div>';DAYS.forEach(d=>html+='<div class="cal-header-cell">'+d+'</div>');let day=new Date(firstDay);day.setDate(day.getDate()-startDow);while(day<=lastDay||((day.getDay()+6)%7!==0)){if((day.getDay()+6)%7===0){const wn=getWeekNum(day);const wo=getWeekOwner(wn,day.getFullYear());const wCls=isOdd(wn)?"odd-week":"even-week";html+='<div class="cal-week-num '+wCls+'" title="Vk '+wn+': '+wo+'">'+wn+'</div>';}const ds=dStr(day);const inMonth=day.getMonth()===curMonth;const isPast=ds<today;const isToday=ds===today;const res=getRes(ds);const reserved=!!res;let cls="cal-cell";if(!inMonth)cls+=" empty";else if(isPast&&!isToday)cls+=" past";if(isToday)cls+=" today";if(inMonth&&reserved){cls+=" reserved";const wn=getWeekNum(day);cls+=isOdd(wn)?" reserved-odd":" reserved-even";}if(inMonth&&!reserved){const range=inRange(ds);if(range){const end=selEnd||hoverDate;const a=selStart<(end||selStart)?selStart:(end||selStart);const b=selStart<(end||selStart)?(end||selStart):selStart;if(ds===selStart&&!selEnd&&!hoverDate)cls+=" selecting-start";else if(ds===a||ds===b)cls+=" range-start";else cls+=" range-mid";}}let inner="";if(inMonth){inner='<div class="day-num">'+day.getDate()+'</div>';if(reserved&&res.name){const wn=getWeekNum(day);const rlcls=isOdd(wn)?"rl-odd":"rl-even";inner+='<span class="reservation-label '+rlcls+'" title="'+esc(res.name)+'">'+esc(res.name)+'</span>';}}const clickable=inMonth&&!reserved;html+='<div class="'+cls+'"'+(clickable?' onclick="calClick(\''+ds+'\')" onmouseover="calHover(\''+ds+'\')" onmouseout="calOut()"':'')+">"+ inner+"</div>";day.setDate(day.getDate()+1);}html+="</div>";cal.innerHTML=html;}
+window.calClick=function(ds){if(!selStart||(selStart&&selEnd)){selStart=ds;selEnd=null;selActive=true;document.getElementById("dispStart").textContent=fD(ds);document.getElementById("dispStart").className="date-display";document.getElementById("dispEnd").textContent="Klikkaa lahtopaiva";document.getElementById("dispEnd").className="date-display empty-date";document.getElementById("hintBar").textContent="Klikkaa lahtopaiva";document.getElementById("hintBar").className="hint-bar";}else{if(ds<selStart){selEnd=selStart;selStart=ds;}else selEnd=ds;document.getElementById("dispStart").textContent=fD(selStart);document.getElementById("dispEnd").textContent=fD(selEnd);document.getElementById("dispEnd").className="date-display";document.getElementById("hintBar").textContent="Tayta varaajan nimi ja paina Lisaa varaus";document.getElementById("hintBar").className="hint-bar idle";selActive=false;}renderCalendar();};
+window.calHover=function(ds){if(selActive){hoverDate=ds;renderCalendar();}};
+window.calOut=function(){if(selActive){hoverDate=null;renderCalendar();}};
+window.clearSelection=function(){selStart=null;selEnd=null;selActive=false;hoverDate=null;document.getElementById("dispStart").textContent="Klikkaa kalenterista";document.getElementById("dispStart").className="date-display empty-date";document.getElementById("dispEnd").textContent="Klikkaa kalenterista";document.getElementById("dispEnd").className="date-display empty-date";document.getElementById("hintBar").textContent="Klikkaa kalenterista aloituspaiva";document.getElementById("hintBar").className="hint-bar idle";renderCalendar();};
+window.addReservation=function(){const name=document.getElementById("resName").value.trim();const msg=document.getElementById("msg");if(!name){msg.textContent="Syota varaajan nimi.";msg.className="msg";return;}if(!selStart||!selEnd){msg.textContent="Valitse saapumis- ja lahtopaiva kalenterista.";msg.className="msg";return;}const conflict=reservations.some(r=>selStart<=r.end&&selEnd>=r.start);if(conflict){msg.textContent="Valittu jakso on jo varattu!";msg.className="msg";return;}push(ref(db,"reservations"),{name,start:selStart,end:selEnd,ts:Date.now()}).then(()=>{msg.textContent="Varaus lisatty!";msg.className="msg ok";clearSelection();document.getElementById("resName").value="";}).catch(e=>{msg.textContent="Virhe: "+e.message;msg.className="msg";});};
+function renderResList(){const el=document.getElementById("resList");if(!reservations.length){el.innerHTML='<div class="no-res">Ei varauksia.</div>';return;}const sorted=[...reservations].sort((a,b)=>a.start.localeCompare(b.start));el.innerHTML=sorted.map(r=>{const wn=getWeekNum(parseD(r.start));const wo=getWeekOwner(wn,parseD(r.start).getFullYear());const cls=isOdd(wn)?"odd-res":"even-res";return'<div class="res-item '+cls+'"><div><div class="res-name">'+esc(r.name)+'</div><div class="res-dates">'+fD(r.start)+' - '+fD(r.end)+'</div><div class="res-week">Vk '+wn+' ('+wo+')</div></div><button class="btn-del" onclick="delRes(\''+r.id+'\')">Poista</button></div>';}).join("");}
+window.delRes=function(id){if(confirm("Poistetaanko varaus?"))remove(ref(db,"reservations/"+id));};
+window.prevMonth=function(){curMonth--;if(curMonth<0){curMonth=11;curYear--;}renderCalendar();};
+window.nextMonth=function(){curMonth++;if(curMonth>11){curMonth=0;curYear++;}renderCalendar();};
+window.saveInstructions=function(){const txt=document.getElementById("instrText").value;set(ref(db,"instructions"),txt).then(()=>{const s=document.getElementById("instrSaved");s.classList.add("show");setTimeout(()=>s.classList.remove("show"),2000);});};
+function renderTodos(){const ul=document.getElementById("todoList");if(!todos.length){ul.innerHTML='<li class="todo-empty">Ei tehtavia.</li>';return;}ul.innerHTML=todos.map(t=>'<li class="todo-item'+(t.done?" done":"")+'"><input type="checkbox" class="todo-cb"'+(t.done?" checked":"")+' onchange="toggleTodo(\''+t.id+'\',this.checked)"><span class="todo-text">'+esc(t.text)+'</span><button class="btn-todo-del" onclick="delTodo(\''+t.id+'\')">&#128465;</button></li>').join("");}
+window.addTodo=function(){const inp=document.getElementById("todoInput");const txt=inp.value.trim();if(!txt)return;push(ref(db,"todos"),{text:txt,done:false,ts:Date.now()});inp.value="";};
+window.toggleTodo=function(id,done){set(ref(db,"todos/"+id+"/done"),done);};
+window.delTodo=function(id){remove(ref(db,"todos/"+id));};
+function renderChat(){const el=document.getElementById("chatMessages");if(!chatMessages.length){el.innerHTML='<div class="chat-empty">Ei viesteja viela.</div>';return;}const sorted=[...chatMessages].sort((a,b)=>(a.ts||0)-(b.ts||0));el.innerHTML=sorted.map(m=>{const dt=m.ts?new Date(m.ts):null;const ts=dt?dt.getDate()+"."+(dt.getMonth()+1)+". "+String(dt.getHours()).padStart(2,"0")+":"+String(dt.getMinutes()).padStart(2,"0"):"";return'<div class="chat-msg"><div class="chat-msg-header"><span class="chat-msg-name">'+esc(m.name||"Tuntematon")+'</span><span><span class="chat-msg-time">'+ts+'</span><button class="btn-chat-del" onclick="delChatMsg(\''+m.id+'\')" title="Poista">&#10005;</button></span></div><div class="chat-msg-text">'+esc(m.text||"")+'</div></div>';}).join("");el.scrollTop=el.scrollHeight;}
+window.sendChatMsg=function(){const name=document.getElementById("chatName").value.trim();const text=document.getElementById("chatText").value.trim();if(!name){alert("Kirjoita nimesi.");return;}if(!text){alert("Kirjoita viesti.");return;}push(ref(db,"chat"),{name,text,ts:Date.now()}).then(()=>{document.getElementById("chatText").value="";});};
+window.delChatMsg=function(id){if(confirm("Poistetaanko viesti?"))remove(ref(db,"chat/"+id));};
+renderCalendar();
 </script>
 </body>
 </html>
