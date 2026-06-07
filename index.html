@@ -16,6 +16,8 @@ header p{color:#555;font-size:.98rem;margin-top:4px;}
 .even-badge{background:#e3f2fd;color:#1565c0;border:1px solid #64b5f6;}
 .current-week-info{margin-top:6px;font-size:.85rem;color:#555;}
 .cabin-icon{font-size:2.6rem;}
+.sync-status{font-size:.75rem;text-align:center;padding:4px;margin-top:4px;}
+.sync-ok{color:#2e7d32;}.sync-err{color:#e53935;}
 .page-layout{display:flex;gap:18px;align-items:flex-start;max-width:1240px;margin:0 auto;}
 .main-col{flex:1 1 0;min-width:0;}
 .side-col{width:290px;flex-shrink:0;display:flex;flex-direction:column;gap:16px;position:sticky;top:16px;}
@@ -119,6 +121,7 @@ footer{text-align:center;color:#999;font-size:.78rem;padding:12px 0 8px;}
 <span class="even-badge">Parilliset viikot - Mikko</span>
 </div>
 <div class="current-week-info" id="currentWeekInfo"></div>
+<div class="sync-status" id="syncStatus">Yhdistetaan tietokantaan...</div>
 </header>
 <div class="page-layout">
 <div class="main-col">
@@ -136,11 +139,11 @@ footer{text-align:center;color:#999;font-size:.78rem;padding:12px 0 8px;}
 <button id="nextMonth">&#8594;</button>
 </div>
 <div class="calendar"><div class="cal-grid" id="calGrid"></div></div>
-<div class="hint-bar idle" id="hintBar">Klikkaa kalenterista saapumispaivaa</div>
+<div class="hint-bar idle" id="hintBar">Ladataan...</div>
 <div class="form-panel">
 <h2>Lisaa varaus</h2>
 <div class="form-row">
-<div class="form-group"><label>Varaajan nimi</label><input type="text" id="resName" placeholder="Esim. Markus"></div>
+<div class="form-group"><label>Varaajan nimi *</label><input type="text" id="resName" placeholder="Esim. Markus"></div>
 <div class="form-group"><label>Saapumispaiva</label><div class="date-display empty-date" id="dispStart">Klikkaa kalenterista</div></div>
 <div class="form-group"><label>Lahtopaiva</label><div class="date-display empty-date" id="dispEnd">Klikkaa kalenterista</div></div>
 </div>
@@ -173,41 +176,180 @@ footer{text-align:center;color:#999;font-size:.78rem;padding:12px 0 8px;}
 </div>
 </div>
 </div>
-<script>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getDatabase, ref, set, push, remove, onValue } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC07SAgtC_A8fpsQ0Ys5u32yjAwePRLzxI",
+  authDomain: "nuokku-d58f8.firebaseapp.com",
+  databaseURL: "https://nuokku-d58f8-default-rtdb.firebaseio.com",
+  projectId: "nuokku-d58f8",
+  storageBucket: "nuokku-d58f8.firebasestorage.app",
+  messagingSenderId: "63959404033",
+  appId: "1:63959404033:web:cd17d1d8665efee7a07a00"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+// State
+var reservations = {};
+var todos = {};
+var instructions = '';
+var cy, cm2;
+var tl = new Date(); tl.setHours(0,0,0,0);
+var ss = null, se = null, hd = null;
+var mn = ['Tammikuu','Helmikuu','Maaliskuu','Huhtikuu','Toukokuu','Kesakuu','Heinakuu','Elokuu','Syyskuu','Lokakuu','Marraskuu','Joulukuu'];
+
 function isoWeek(d){var u=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));var day=u.getUTCDay()||7;u.setUTCDate(u.getUTCDate()+4-day);var ys=new Date(Date.UTC(u.getUTCFullYear(),0,1));return Math.ceil((((u-ys)/86400000)+1)/7);}
 function isOdd(n){return n%2!==0;}
-var reservations=JSON.parse(localStorage.getItem('nuokku_reservations')||'[]');
-var todos=JSON.parse(localStorage.getItem('nuokku_todos')||'[]');
-var cy,cm2;
-var tl=new Date();tl.setHours(0,0,0,0);
-var ss=null,se=null,hd=null;
-var mn=['Tammikuu','Helmikuu','Maaliskuu','Huhtikuu','Toukokuu','Kesakuu','Heinakuu','Elokuu','Syyskuu','Lokakuu','Marraskuu','Joulukuu'];
-function sR(){localStorage.setItem('nuokku_reservations',JSON.stringify(reservations));}
-function sT(){localStorage.setItem('nuokku_todos',JSON.stringify(todos));}
 function dS(d){var y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');return y+'-'+m+'-'+day;}
 function pD(s){var p=s.split('-');return new Date(+p[0],+p[1]-1,+p[2]);}
 function fD(s){return pD(s).toLocaleDateString('fi-FI',{day:'numeric',month:'numeric',year:'numeric'});}
 function iR(ds,s,e){return ds>=s&&ds<=e;}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+function setSync(ok, msg){var el=document.getElementById('syncStatus');el.textContent=msg;el.className='sync-status '+(ok?'sync-ok':'sync-err');}
+
+// Listen to Firebase data in realtime
+onValue(ref(db,'reservations'), snap => {
+  reservations = snap.val() || {};
+  renderCalendar();
+  renderList();
+  setSync(true,'Tietokanta yhdistetty - muutokset synkronoituvat kaikille');
+}, err => setSync(false,'Yhteysvirhe: '+err.message));
+
+onValue(ref(db,'todos'), snap => {
+  todos = snap.val() || {};
+  renderTodos();
+});
+
+onValue(ref(db,'instructions'), snap => {
+  var val = snap.val();
+  if(val !== null) {
+    instructions = val;
+    document.getElementById('instrText').value = val;
+  }
+});
+
 function uCW(){var w=isoWeek(tl);var o=isOdd(w)?'Markus':'Mikko';var el=document.getElementById('currentWeekInfo');el.textContent='Viikko '+w+' - '+o+'n vuoro';el.style.color=isOdd(w)?'#e65100':'#1565c0';}
 function uH(){var b=document.getElementById('hintBar');if(!ss){b.className='hint-bar idle';b.textContent='Klikkaa kalenterista saapumispaivaa';}else if(!se){b.className='hint-bar';b.textContent='Saapumispaiva: '+fD(dS(ss))+' - Klikkaa lahtopaivaa';}else{b.className='hint-bar idle';b.textContent='Valittu: '+fD(dS(ss))+' - '+fD(dS(se))+' - Anna nimi ja paina Lisaa';}}
 function uDD(){var ds=document.getElementById('dispStart'),de=document.getElementById('dispEnd');if(ss){ds.textContent=fD(dS(ss));ds.className='date-display';}else{ds.textContent='Klikkaa kalenterista';ds.className='date-display empty-date';}if(se){de.textContent=fD(dS(se));de.className='date-display';}else{de.textContent='Klikkaa kalenterista';de.className='date-display empty-date';}document.getElementById('addRes').disabled=!(ss&&se);}
-function rC(){var grid=document.getElementById('calGrid');document.getElementById('monthTitle').textContent=mn[cm2]+' '+cy;grid.innerHTML='';var cor=document.createElement('div');cor.className='cal-corner';grid.appendChild(cor);['Ma','Ti','Ke','To','Pe','La','Su'].forEach(function(d){var c=document.createElement('div');c.className='cal-header-cell';c.textContent=d;grid.appendChild(c);});var fd=new Date(cy,cm2,1);var sd=fd.getDay();sd=(sd===0)?6:sd-1;var dim=new Date(cy,cm2+1,0).getDate();var ts=dS(tl);var rSt=null,rEn=null;if(ss&&!se&&hd){var s1=dS(ss),h1=dS(hd);rSt=(h1>=s1)?s1:h1;rEn=(h1>=s1)?h1:s1;}else if(ss&&se){rSt=dS(ss);rEn=dS(se);}if(sd>0){var wn=isoWeek(new Date(cy,cm2,1));var wc=document.createElement('div');wc.className='cal-week-num '+(isOdd(wn)?'odd-week':'even-week');wc.textContent='v'+wn;grid.appendChild(wc);for(var i=0;i<sd;i++){var ec=document.createElement('div');ec.className='cal-cell empty';grid.appendChild(ec);}}for(var d=1;d<=dim;d++){var date=new Date(cy,cm2,d);var ds=dS(date);var dow=date.getDay();var dm=(dow===0)?6:dow-1;if(dm===0){var wn2=isoWeek(date);var wc2=document.createElement('div');wc2.className='cal-week-num '+(isOdd(wn2)?'odd-week':'even-week');wc2.textContent='v'+wn2;grid.appendChild(wc2);}var cell=document.createElement('div');cell.className='cal-cell';cell.dataset.date=ds;if(date<tl)cell.classList.add('past');if(ds===ts)cell.classList.add('today');var dr=reservations.filter(function(r){return iR(ds,r.start,r.end);});if(dr.length>0){cell.classList.add('reserved');var rw=isoWeek(pD(dr[0].start));cell.classList.add(isOdd(rw)?'reserved-odd':'reserved-even');dr.forEach(function(r){var rw2=isoWeek(pD(r.start));var lbl=document.createElement('span');lbl.className='reservation-label '+(isOdd(rw2)?'rl-odd':'rl-even');lbl.textContent=r.name;cell.appendChild(lbl);});}else if(date>=tl){if(ss&&!se&&!hd&&ds===dS(ss))cell.classList.add('selecting-start');if(rSt&&rEn){if(ds===rSt&&ds===rEn)cell.classList.add('range-start');else if(ds===rSt)cell.classList.add('range-start');else if(ds===rEn)cell.classList.add('range-end');else if(ds>rSt&&ds<rEn)cell.classList.add('range-mid');}}var ne=document.createElement('div');ne.className='day-num';ne.textContent=d;cell.prepend(ne);grid.appendChild(cell);}grid.onmouseover=function(e){var c=e.target.closest('.cal-cell');if(!c||!c.dataset.date||c.classList.contains('empty')||c.classList.contains('past')||c.classList.contains('reserved')){if(hd){hd=null;rC();}return;}if(ss&&!se){var h=pD(c.dataset.date);if(!hd||dS(h)!==dS(hd)){hd=h;rC();}}};grid.onmouseleave=function(){if(ss&&!se&&hd){hd=null;rC();}};grid.onclick=function(e){var c=e.target.closest('.cal-cell');if(!c||!c.dataset.date||c.classList.contains('empty')||c.classList.contains('past')||c.classList.contains('reserved'))return;var cl=pD(c.dataset.date);if(!ss||(ss&&se)){ss=cl;se=null;hd=null;}else{if(cl<ss){se=ss;ss=cl;}else{se=cl;}hd=null;}document.getElementById('formMsg').textContent='';document.getElementById('formMsg').className='msg';rC();uH();uDD();};}
-function rL(){var list=document.getElementById('resList');var sorted=[].concat(reservations).sort(function(a,b){return a.start.localeCompare(b.start);});if(sorted.length===0){list.innerHTML='<p class="no-res">Ei varauksia.</p>';return;}list.innerHTML='';sorted.forEach(function(r){var oi=reservations.indexOf(r);var w=isoWeek(pD(r.start));var cls=isOdd(w)?'odd-res':'even-res';var item=document.createElement('div');item.className='res-item '+cls;item.innerHTML='<div><div class="res-name">'+esc(r.name)+'</div><div class="res-dates">'+fD(r.start)+' - '+fD(r.end)+'</div><div class="res-week">Viikko '+w+' - '+(isOdd(w)?'Markus':'Mikko')+'</div></div><button class="btn-del" data-idx="'+oi+'">Poista</button>';list.appendChild(item);});}
-function rT(){var ul=document.getElementById('todoList');if(todos.length===0){ul.innerHTML='<li class="todo-empty">Ei tehtavia</li>';return;}ul.innerHTML='';todos.forEach(function(t,i){var li=document.createElement('li');li.className='todo-item'+(t.done?' done':'');li.innerHTML='<input type="checkbox" class="todo-cb" data-idx="'+i+'"'+(t.done?' checked':'')+'><span class="todo-text">'+esc(t.text)+'</span><button class="btn-todo-del" data-idx="'+i+'">x</button>';ul.appendChild(li);});}
-document.getElementById('todoAdd').addEventListener('click',function(){var inp=document.getElementById('todoInput');var v=inp.value.trim();if(!v)return;todos.push({text:v,done:false});sT();rT();inp.value='';inp.focus();});
+
+function getResList(){return Object.entries(reservations).map(([k,v])=>({...v,_key:k}));}
+
+function renderCalendar(){
+  var grid=document.getElementById('calGrid');
+  document.getElementById('monthTitle').textContent=mn[cm2]+' '+cy;
+  grid.innerHTML='';
+  var cor=document.createElement('div');cor.className='cal-corner';grid.appendChild(cor);
+  ['Ma','Ti','Ke','To','Pe','La','Su'].forEach(function(d){var c=document.createElement('div');c.className='cal-header-cell';c.textContent=d;grid.appendChild(c);});
+  var fd=new Date(cy,cm2,1);
+  var sd=fd.getDay();sd=(sd===0)?6:sd-1;
+  var dim=new Date(cy,cm2+1,0).getDate();
+  var ts=dS(tl);
+  var rSt=null,rEn=null;
+  if(ss&&!se&&hd){var s1=dS(ss),h1=dS(hd);rSt=(h1>=s1)?s1:h1;rEn=(h1>=s1)?h1:s1;}
+  else if(ss&&se){rSt=dS(ss);rEn=dS(se);}
+  if(sd>0){var wn=isoWeek(new Date(cy,cm2,1));var wc=document.createElement('div');wc.className='cal-week-num '+(isOdd(wn)?'odd-week':'even-week');wc.textContent='v'+wn;grid.appendChild(wc);for(var i=0;i<sd;i++){var ec=document.createElement('div');ec.className='cal-cell empty';grid.appendChild(ec);}}
+  var resList=getResList();
+  for(var d=1;d<=dim;d++){
+    var date=new Date(cy,cm2,d);var ds=dS(date);
+    var dow=date.getDay();var dm=(dow===0)?6:dow-1;
+    if(dm===0){var wn2=isoWeek(date);var wc2=document.createElement('div');wc2.className='cal-week-num '+(isOdd(wn2)?'odd-week':'even-week');wc2.textContent='v'+wn2;grid.appendChild(wc2);}
+    var cell=document.createElement('div');cell.className='cal-cell';cell.dataset.date=ds;
+    if(date<tl)cell.classList.add('past');
+    if(ds===ts)cell.classList.add('today');
+    var dr=resList.filter(function(r){return iR(ds,r.start,r.end);});
+    if(dr.length>0){cell.classList.add('reserved');var rw=isoWeek(pD(dr[0].start));cell.classList.add(isOdd(rw)?'reserved-odd':'reserved-even');dr.forEach(function(r){var rw2=isoWeek(pD(r.start));var lbl=document.createElement('span');lbl.className='reservation-label '+(isOdd(rw2)?'rl-odd':'rl-even');lbl.textContent=r.name;cell.appendChild(lbl);});}
+    else if(date>=tl){
+      if(ss&&!se&&!hd&&ds===dS(ss))cell.classList.add('selecting-start');
+      if(rSt&&rEn){if(ds===rSt&&ds===rEn)cell.classList.add('range-start');else if(ds===rSt)cell.classList.add('range-start');else if(ds===rEn)cell.classList.add('range-end');else if(ds>rSt&&ds<rEn)cell.classList.add('range-mid');}
+    }
+    var ne=document.createElement('div');ne.className='day-num';ne.textContent=d;cell.prepend(ne);
+    grid.appendChild(cell);
+  }
+  grid.onmouseover=function(e){var c=e.target.closest('.cal-cell');if(!c||!c.dataset.date||c.classList.contains('empty')||c.classList.contains('past')||c.classList.contains('reserved')){if(hd){hd=null;renderCalendar();}return;}if(ss&&!se){var h=pD(c.dataset.date);if(!hd||dS(h)!==dS(hd)){hd=h;renderCalendar();}}};
+  grid.onmouseleave=function(){if(ss&&!se&&hd){hd=null;renderCalendar();}};
+  grid.onclick=function(e){var c=e.target.closest('.cal-cell');if(!c||!c.dataset.date||c.classList.contains('empty')||c.classList.contains('past')||c.classList.contains('reserved'))return;var cl=pD(c.dataset.date);if(!ss||(ss&&se)){ss=cl;se=null;hd=null;}else{if(cl<ss){se=ss;ss=cl;}else{se=cl;}hd=null;}document.getElementById('formMsg').textContent='';document.getElementById('formMsg').className='msg';renderCalendar();uH();uDD();};
+}
+
+function renderList(){
+  var list=document.getElementById('resList');
+  var sorted=getResList().sort(function(a,b){return a.start.localeCompare(b.start);});
+  if(sorted.length===0){list.innerHTML='<p class="no-res">Ei varauksia.</p>';return;}
+  list.innerHTML='';
+  sorted.forEach(function(r){
+    var w=isoWeek(pD(r.start));var cls=isOdd(w)?'odd-res':'even-res';
+    var item=document.createElement('div');item.className='res-item '+cls;
+    item.innerHTML='<div><div class="res-name">'+esc(r.name)+'</div><div class="res-dates">'+fD(r.start)+' - '+fD(r.end)+'</div><div class="res-week">Viikko '+w+' - '+(isOdd(w)?'Markus':'Mikko')+'</div></div><button class="btn-del" data-key="'+r._key+'">Poista</button>';
+    list.appendChild(item);
+  });
+}
+
+function renderTodos(){
+  var ul=document.getElementById('todoList');
+  var items=Object.entries(todos).map(([k,v])=>({...v,_key:k})).sort((a,b)=>(a.ts||0)-(b.ts||0));
+  if(items.length===0){ul.innerHTML='<li class="todo-empty">Ei tehtavia</li>';return;}
+  ul.innerHTML='';
+  items.forEach(function(t){
+    var li=document.createElement('li');li.className='todo-item'+(t.done?' done':'');
+    li.innerHTML='<input type="checkbox" class="todo-cb" data-key="'+t._key+'"'+(t.done?' checked':'')+'><span class="todo-text">'+esc(t.text)+'</span><button class="btn-todo-del" data-key="'+t._key+'">x</button>';
+    ul.appendChild(li);
+  });
+}
+
+document.getElementById('addRes').addEventListener('click',function(){
+  var name=document.getElementById('resName').value.trim();
+  var msg=document.getElementById('formMsg');msg.className='msg';
+  if(!name){msg.textContent='Anna varaajan nimi.';return;}
+  if(!ss||!se){msg.textContent='Valitse paivat kalenterista.';return;}
+  var start=dS(ss),end=dS(se);
+  var overlap=getResList().find(function(r){return !(end<r.start||start>r.end);});
+  if(overlap){msg.textContent='Paallekkainen varaus: '+overlap.name;return;}
+  push(ref(db,'reservations'),{name:name,start:start,end:end});
+  msg.className='msg ok';msg.textContent='Varaus lisatty!';
+  document.getElementById('resName').value='';ss=null;se=null;hd=null;
+  renderCalendar();uH();uDD();
+});
+
+document.getElementById('clearSel').addEventListener('click',function(){ss=null;se=null;hd=null;document.getElementById('formMsg').textContent='';renderCalendar();uH();uDD();});
+
+document.getElementById('resList').addEventListener('click',function(e){
+  if(e.target.classList.contains('btn-del')){
+    var key=e.target.dataset.key;
+    var name=reservations[key]?reservations[key].name:'varaus';
+    if(confirm('Poistetaanko varaus: '+name+'?')){remove(ref(db,'reservations/'+key));}
+  }
+});
+
+document.getElementById('todoAdd').addEventListener('click',function(){
+  var inp=document.getElementById('todoInput');var v=inp.value.trim();if(!v)return;
+  push(ref(db,'todos'),{text:v,done:false,ts:Date.now()});inp.value='';inp.focus();
+});
 document.getElementById('todoInput').addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('todoAdd').click();});
-document.getElementById('todoList').addEventListener('change',function(e){if(e.target.classList.contains('todo-cb')){var idx=parseInt(e.target.dataset.idx);todos[idx].done=e.target.checked;sT();rT();}});
-document.getElementById('todoList').addEventListener('click',function(e){var btn=e.target.closest('.btn-todo-del');if(btn){var idx=parseInt(btn.dataset.idx);todos.splice(idx,1);sT();rT();}});
-document.getElementById('addRes').addEventListener('click',function(){var name=document.getElementById('resName').value.trim();var msg=document.getElementById('formMsg');msg.className='msg';if(!name){msg.textContent='Anna varaajan nimi.';return;}if(!ss||!se){msg.textContent='Valitse paivat kalenterista.';return;}var start=dS(ss),end=dS(se);var ol=reservations.find(function(r){return !(end<r.start||start>r.end);});if(ol){msg.textContent='Paallekkainen varaus: '+ol.name;return;}reservations.push({name:name,start:start,end:end});sR();msg.className='msg ok';msg.textContent='Varaus lisatty!';document.getElementById('resName').value='';ss=null;se=null;hd=null;rC();rL();uH();uDD();});
-document.getElementById('clearSel').addEventListener('click',function(){ss=null;se=null;hd=null;document.getElementById('formMsg').textContent='';rC();uH();uDD();});
-document.getElementById('resList').addEventListener('click',function(e){if(e.target.classList.contains('btn-del')){var idx=parseInt(e.target.dataset.idx);if(confirm('Poistetaanko varaus: '+reservations[idx].name+'?')){reservations.splice(idx,1);sR();rC();rL();}}});
-document.getElementById('prevMonth').addEventListener('click',function(){cm2--;if(cm2<0){cm2=11;cy--;}rC();});
-document.getElementById('nextMonth').addEventListener('click',function(){cm2++;if(cm2>11){cm2=0;cy++;}rC();});
-var it=document.getElementById('instrText');it.value=localStorage.getItem('nuokku_instructions')||'';
-document.getElementById('saveInstr').addEventListener('click',function(){localStorage.setItem('nuokku_instructions',it.value);var sv=document.getElementById('instrSaved');sv.classList.add('show');setTimeout(function(){sv.classList.remove('show');},2000);});
+document.getElementById('todoList').addEventListener('change',function(e){
+  if(e.target.classList.contains('todo-cb')){var key=e.target.dataset.key;set(ref(db,'todos/'+key+'/done'),e.target.checked);}
+});
+document.getElementById('todoList').addEventListener('click',function(e){
+  var btn=e.target.closest('.btn-todo-del');
+  if(btn){remove(ref(db,'todos/'+btn.dataset.key));}
+});
+
+document.getElementById('prevMonth').addEventListener('click',function(){cm2--;if(cm2<0){cm2=11;cy--;}renderCalendar();});
+document.getElementById('nextMonth').addEventListener('click',function(){cm2++;if(cm2>11){cm2=0;cy++;}renderCalendar();});
+
+var instrText=document.getElementById('instrText');
+document.getElementById('saveInstr').addEventListener('click',function(){
+  set(ref(db,'instructions'),instrText.value);
+  var sv=document.getElementById('instrSaved');sv.classList.add('show');
+  setTimeout(function(){sv.classList.remove('show');},2000);
+});
+
 cy=tl.getFullYear();cm2=tl.getMonth();
-uCW();rC();rL();uH();uDD();rT();
+uCW();renderCalendar();uH();uDD();
 </script>
 </body>
 </html>
