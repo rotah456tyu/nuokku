@@ -192,7 +192,7 @@ footer{text-align:center;color:#999;font-size:.78rem;padding:12px 0 8px;}
 <header>
 <div class="cabin-icon">&#127969;</div>
 <h1>Nuokku</h1>
-<p>Suvun mokin varauskalenteri</p>
+<p>Suvun mökin varauskalenteri</p>
 <div class="week-owner-info">
 <span class="odd-badge" id="oddLabel">Parittomat viikot - Mikko</span>
 <span class="even-badge" id="evenLabel">Parilliset viikot - Markus</span>
@@ -208,7 +208,7 @@ footer{text-align:center;color:#999;font-size:.78rem;padding:12px 0 8px;}
 <div class="legend-item"><div class="legend-box lb-selected"></div> Valittu jakso</div>
 <div class="legend-item"><div class="legend-box lb-reserved-odd"></div> <span id="legendOdd">Varattu (Mikko)</span></div>
 <div class="legend-item"><div class="legend-box lb-reserved-even"></div> <span id="legendEven">Varattu (Markus)</span></div>
-<div class="legend-item"><div class="legend-box lb-today"></div> Tanaan</div>
+<div class="legend-item"><div class="legend-box lb-today"></div> Tänään</div>
 </div>
 <div class="calendar-nav">
 <button onclick="prevMonth()">&#8592;</button>
@@ -216,9 +216,9 @@ footer{text-align:center;color:#999;font-size:.78rem;padding:12px 0 8px;}
 <button onclick="nextMonth()">&#8594;</button>
 </div>
 <div class="calendar" id="calendar"></div>
-<div class="hint-bar idle" id="hintBar">Klikkaa kalenterista aloituspaiva</div>
+<div class="hint-bar idle" id="hintBar">Klikkaa kalenterista aloituspäivä</div>
 <div class="form-panel">
-<h2>&#128197; Lisaa varaus</h2>
+<h2>&#128197; Lisää varaus</h2>
 <div class="form-row">
 <div class="form-group">
 <label>Varaajan nimi *</label>
@@ -229,13 +229,13 @@ footer{text-align:center;color:#999;font-size:.78rem;padding:12px 0 8px;}
 <div class="date-display empty-date" id="dispStart">Klikkaa kalenterista</div>
 </div>
 <div class="form-group">
-<label>Lahto</label>
+<label>Lähtö</label>
 <div class="date-display empty-date" id="dispEnd">Klikkaa kalenterista</div>
 </div>
 </div>
 <div class="btn-row">
-<button class="btn-add" onclick="addReservation()">Lisaa varaus</button>
-<button class="btn-clear-sel" onclick="clearSelection()">Tyhjenna valinta</button>
+<button class="btn-add" onclick="addReservation()">Lisää varaus</button>
+<button class="btn-clear-sel" onclick="clearSelection()">Tyhjennä valinta</button>
 </div>
 <div class="msg" id="msg"></div>
 </div>
@@ -245,25 +245,25 @@ footer{text-align:center;color:#999;font-size:.78rem;padding:12px 0 8px;}
 </div>
 <div class="chat-panel">
 <h2>&#128172; Keskustelu</h2>
-<div class="chat-messages" id="chatMessages"><div class="chat-empty">Ei viesteja viela.</div></div>
+<div class="chat-messages" id="chatMessages"><div class="chat-empty">Ei viestejä vielä.</div></div>
 <div class="chat-input-row">
 <input type="text" id="chatName" placeholder="Nimesi" maxlength="40">
 <textarea id="chatText" placeholder="Kirjoita viesti..." maxlength="500"></textarea>
-<button class="btn-chat-send" onclick="sendChatMsg()">Laheta &#128232;</button>
+<button class="btn-chat-send" onclick="sendChatMsg()">Lähetä &#128232;</button>
 </div>
 </div>
 </div>
 <div class="side-col">
 <div class="side-panel instructions-panel">
 <h2>&#128221; Ohjeita ja tietoja</h2>
-<textarea id="instrText" placeholder="Kirjoita ohjeita tai tietoja mokista..."></textarea>
+<textarea id="instrText" placeholder="Kirjoita ohjeita tai tietoja mökistä"></textarea>
 <button class="btn-save-instr" onclick="saveInstructions()">Tallenna ohjeet</button>
 <span class="instr-saved" id="instrSaved">Tallennettu!</span>
 </div>
 <div class="side-panel">
-<h2>&#9989; Tehtavalista</h2>
+<h2>&#9989; Tehtävälista</h2>
 <div class="todo-add-row">
-<input type="text" id="todoInput" placeholder="Uusi tehtava..." maxlength="120" onkeydown="if(event.key==='Enter')addTodo()">
+<input type="text" id="todoInput" placeholder="Uusi tehtävä" maxlength="120" onkeydown="if(event.key==='Enter')addTodo()">
 <button class="btn-todo-add" onclick="addTodo()">+</button>
 </div>
 <ul class="todo-list" id="todoList"></ul>
@@ -277,7 +277,7 @@ import { getDatabase, ref, onValue, push, set, remove } from 'https://www.gstati
 const firebaseConfig={apiKey:"AIzaSyC07SAgtC_A8fpsQ0Ys5u32yjAwePRLzxI",authDomain:"nuokku-d58f8.firebaseapp.com",databaseURL:"https://nuokku-d58f8-default-rtdb.firebaseio.com",projectId:"nuokku-d58f8",storageBucket:"nuokku-d58f8.appspot.com",messagingSenderId:"63959404033",appId:"1:63959404033:web:cd17d1d8665efee7a07a00"};
 const app=initializeApp(firebaseConfig);
 const db=getDatabase(app);
-const MONTHS=['Tammikuu','Helmikuu','Maaliskuu','Huhtikuu','Toukokuu','Kesakuu','Heinakuu','Elokuu','Syyskuu','Lokakuu','Marraskuu','Joulukuu'];
+const MONTHS=['Tammikuu','Helmikuu','Maaliskuu','Huhtikuu','Toukokuu','Kesäkuu','Heinäkuu','Elokuu','Syyskuu','Lokakuu','Marraskuu','Joulukuu'];
 const DAYS=['Ma','Ti','Ke','To','Pe','La','Su'];
 let curYear=new Date().getFullYear(),curMonth=new Date().getMonth();
 let reservations=[],todos=[],chatMessages=[],instructions="";
@@ -292,10 +292,10 @@ function fD(s){const d=parseD(s);return d.getDate()+"."+(d.getMonth()+1)+"."+d.g
 function getWeekNum(d){const tmp=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const dn=tmp.getUTCDay()||7;tmp.setUTCDate(tmp.getUTCDate()+4-dn);const ys=new Date(Date.UTC(tmp.getUTCFullYear(),0,1));return Math.ceil((((tmp-ys)/86400000)+1)/7);}
 function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 function setStatus(msg,ok){const el=document.getElementById("syncStatus");el.textContent=msg;el.className="sync-status "+(ok?"sync-ok":"sync-err");}
-onValue(ref(db,"reservations"),snap=>{reservations=[];snap.forEach(c=>reservations.push({id:c.key,...c.val()}));renderCalendar();renderResList();setStatus("Tietokanta yhdistetty",true);},err=>setStatus("Yhteysvirhe: "+err.message,false));
-onValue(ref(db,"todos"),snap=>{todos=[];snap.forEach(c=>todos.push({id:c.key,...c.val()}));renderTodos();});
+onValue(ref(db,"reservations"),snap=>{reservations=[];snap.forEach(c=>{reservations.push({id:c.key,...c.val()});});renderCalendar();renderResList();setStatus("Tietokanta yhdistetty",true);},err=>setStatus("Yhteysvirhe: "+err.message,false));
+onValue(ref(db,"todos"),snap=>{todos=[];snap.forEach(c=>{todos.push({id:c.key,...c.val()});});renderTodos();});
 onValue(ref(db,"instructions"),snap=>{instructions=snap.val()||"";document.getElementById("instrText").value=instructions;});
-onValue(ref(db,"chat"),snap=>{chatMessages=[];snap.forEach(c=>chatMessages.push({id:c.key,...c.val()}));renderChat();});
+onValue(ref(db,"chat"),snap=>{chatMessages=[];snap.forEach(c=>{chatMessages.push({id:c.key,...c.val()});});renderChat();});
 function getRes(ds){return reservations.find(r=>ds>=r.start&&ds<=r.end);}
 function inRange(ds){if(!selStart)return false;const end=selEnd||hoverDate;if(!end)return ds===selStart;const a=selStart<end?selStart:end;const b=selStart<end?end:selStart;return ds>=a&&ds<=b;}
 function renderCalendar(){updateOwnerLabels();document.getElementById("monthTitle").textContent=MONTHS[curMonth]+" "+curYear;const cal=document.getElementById("calendar");const today=dStr(new Date());const firstDay=new Date(curYear,curMonth,1);const lastDay=new Date(curYear,curMonth+1,0);const startDow=(firstDay.getDay()+6)%7;let html='<div class="cal-grid">';html+='<div class="cal-corner"></div>';DAYS.forEach(d=>html+='<div class="cal-header-cell">'+d+'</div>');let day=new Date(firstDay);day.setDate(day.getDate()-startDow);while(day<=lastDay||((day.getDay()+6)%7!==0)){if((day.getDay()+6)%7===0){const wn=getWeekNum(day);const wo=getWeekOwner(wn,day.getFullYear());const wCls=isOdd(wn)?"odd-week":"even-week";html+='<div class="cal-week-num '+wCls+'" title="Vk '+wn+': '+wo+'">'+wn+'</div>';}const ds=dStr(day);const inMonth=day.getMonth()===curMonth;const isPast=ds<today;const isToday=ds===today;const res=getRes(ds);const reserved=!!res;let cls="cal-cell";if(!inMonth)cls+=" empty";else if(isPast&&!isToday)cls+=" past";if(isToday)cls+=" today";if(inMonth&&reserved){cls+=" reserved";const wn=getWeekNum(day);cls+=isOdd(wn)?" reserved-odd":" reserved-even";}if(inMonth&&!reserved){const range=inRange(ds);if(range){const end=selEnd||hoverDate;const a=selStart<(end||selStart)?selStart:(end||selStart);const b=selStart<(end||selStart)?(end||selStart):selStart;if(ds===selStart&&!selEnd&&!hoverDate)cls+=" selecting-start";else if(ds===a||ds===b)cls+=" range-start";else cls+=" range-mid";}}let inner="";if(inMonth){inner='<div class="day-num">'+day.getDate()+'</div>';if(reserved&&res.name){const wn=getWeekNum(day);const rlcls=isOdd(wn)?"rl-odd":"rl-even";inner+='<span class="reservation-label '+rlcls+'" title="'+esc(res.name)+'">'+esc(res.name)+'</span>';}}const clickable=inMonth&&!reserved;html+='<div class="'+cls+'"'+(clickable?' onclick="calClick(\''+ds+'\')" onmouseover="calHover(\''+ds+'\')" onmouseout="calOut()"':'')+">"+ inner+"</div>";day.setDate(day.getDate()+1);}html+="</div>";cal.innerHTML=html;}
